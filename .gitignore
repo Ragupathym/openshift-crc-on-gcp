@@ -1,0 +1,22 @@
+# .gitignore
+
+# Terraform state files
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Variables file (contains sensitive data)
+terraform.tfvars
+*.tfvars.json
+
+# Crash log files
+crash.log
+
+# .terraformignore is a file that terraform uses to
+# ignore files when packaging a module.
+# Check https://www.terraform.io/docs/internals/module-packaging.html
+# for more information.
+.terraformignore
+
+# Provider-specific files
+.terraform.lock.hcl

@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openshift-status-app-cluster-reader # Unique name for the binding
+subjects:
+  - kind: ServiceAccount
+    name: default # The default service account in the project where the app is deployed
+    namespace: openshift-status-demo # REPLACE THIS WITH YOUR PROJECT NAME
+roleRef:
+  kind: ClusterRole
+  name: cluster-reader # This role grants read-only access to all resources in the cluster
+  apiGroup: rbac.authorization.k8s.io

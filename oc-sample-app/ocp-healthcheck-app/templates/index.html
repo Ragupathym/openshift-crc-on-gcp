@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenShift CRC Status Checker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>OpenShift CRC Status Checker</h1>
+        <p>This application runs inside your OpenShift CRC cluster and queries its status and resources.</p>
+        <p class="note"><strong>Note:</strong> This checks the OpenShift cluster's status, not the host machine's CRC VM status.</p>
+
+        <div class="section">
+            <h2>Overall Cluster Status</h2>
+            <button onclick="fetchStatus('status', 'cluster-status-output')">Refresh Cluster Status</button>
+            <pre id="cluster-status-output" class="output-box">Loading cluster status...</pre>
+        </div>
+
+        <div class="section">
+            <h2>Projects (Namespaces)</h2>
+            <button onclick="fetchStatus('projects', 'projects-output')">Refresh Projects</button>
+            <pre id="projects-output" class="output-box">Loading projects...</pre>
+        </div>
+
+        <div class="section">
+            <h2>Pods in Project: <input type="text" id="pod-namespace" value="openshift-console" class="namespace-input"></h2>
+            <button onclick="fetchStatus('pods', 'pods-output', document.getElementById('pod-namespace').value)">Refresh Pods</button>
+            <pre id="pods-output" class="output-box">Loading pods...</pre>
+        </div>
+
+        <div class="section">
+            <h2>Routes in Project: <input type="text" id="route-namespace" value="openshift-console" class="namespace-input"></h2>
+            <button onclick="fetchStatus('routes', 'routes-output', document.getElementById('route-namespace').value)">Refresh Routes</button>
+            <pre id="routes-output" class="output-box">Loading routes...</pre>
+        </div>
+    </div>
+
+    <script>
+        async function fetchStatus(endpoint, outputElementId, namespace = null) {
+            const outputElement = document.getElementById(outputElementId);
+            outputElement.textContent = `Fetching ${endpoint} data...`;
+            try {
+                let url = `/api/${endpoint}`;
+                if (namespace) {
+                    url += `?namespace=${encodeURIComponent(namespace)}`;
+                }
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    if (endpoint === 'projects') {
+                        outputElement.textContent = data.projects.join('\n');
+                    } else {
+                        outputElement.textContent = data[endpoint];
+                    }
+                } else {
+                    outputElement.textContent = `Error: ${data.error || 'Failed to fetch data'}`;
+                    console.error(`Error fetching ${endpoint}:`, data);
+                }
+            } catch (error) {
+                outputElement.textContent = `Network error or server unavailable. Check console.`;
+                console.error(`Fetch error for ${endpoint}:`, error);
+            }
+        }
+
+        // Initial fetch on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchStatus('status', 'cluster-status-output');
+            fetchStatus('projects', 'projects-output');
+            fetchStatus('pods', 'pods-output', 'openshift-console');
+            fetchStatus('routes', 'routes-output', 'openshift-console');
+        });
+    </script>
+</body>
+</html>
