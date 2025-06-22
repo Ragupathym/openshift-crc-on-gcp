@@ -1,12 +1,63 @@
+# rbac.yaml - Recommended with Dedicated ServiceAccount
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: oc-healthcheck-sa # Dedicated ServiceAccount
+  namespace: oc-healthcheck # Ensure this matches your project
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: oc-healthcheck-reader
+  namespace: oc-healthcheck # Role is namespace-scoped
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "list"] # Allow getting and listing resources in this namespace
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
+  verbs: ["get", "list"]
+- apiGroups: ["route.openshift.io"]
+  resources: ["routes"]
+  verbs: ["get", "list"]
+# Add more namespace-scoped rules as needed for resources your app checks within its namespace
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: oc-healthcheck-cluster-reader # Custom ClusterRole
+rules:
+- apiGroups: [""]
+  resources: ["nodes", "namespaces", "pods"]
+  verbs: ["get", "list"]
+- apiGroups: ["project.openshift.io"]
+  resources: ["projects"]
+  verbs: ["get", "list"]
+- apiGroups: ["config.openshift.io"] # For cluster operators (oc get co)
+  resources: ["clusteroperators"]
+  verbs: ["get", "list"]
+- apiGroups: ["events.k8s.io"] # For events (oc get events)
+  resources: ["events"]
+  verbs: ["get", "list"]
+- apiGroups: ["route.openshift.io"] # <--- ADDED "route.openshift.io" API group
+  resources: ["routes"] # <--- ADDED "routes" resource here
+  verbs: ["get", "list"]
+# Add other cluster-wide resources if needed for your health checks
+
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: openshift-status-app-cluster-reader # Unique name for the binding
+  name: oc-healthcheck-cluster-reader-binding # Unique ClusterRoleBinding name
 subjects:
-  - kind: ServiceAccount
-    name: default # The default service account in the project where the app is deployed
-    namespace: openshift-status-demo # REPLACE THIS WITH YOUR PROJECT NAME
+- kind: ServiceAccount
+  name: oc-healthcheck-sa # Bind to the dedicated ServiceAccount
+  namespace: oc-healthcheck
 roleRef:
   kind: ClusterRole
-  name: cluster-reader # This role grants read-only access to all resources in the cluster
+  name: oc-healthcheck-cluster-reader # Reference the custom ClusterRole
   apiGroup: rbac.authorization.k8s.io
+
