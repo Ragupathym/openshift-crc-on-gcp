@@ -1,137 +1,165 @@
-OpenShift CRC Status Checker Demo
-This repository contains a simple web application designed to demonstrate how to query and display the status and resources of an OpenShift cluster from within the cluster itself. The application uses Python Flask and the oc CLI tool to fetch information about projects, pods, and routes, providing a real-time overview of your OpenShift CodeReady Containers (CRC) environment.
+# OpenShift CRC Status Checker - Consolidated Deployment Guide
 
-Note: This application checks the status of the OpenShift cluster (the Kubernetes-based platform managed by CRC), not the status of the CRC virtual machine running on your host machine.
+This guide provides a streamlined, step-by-step process to deploy the OpenShift CRC Status Checker application. It combines all necessary commands and configurations for quick and easy deployment, assuming you are starting from a clean state and have your CRC instance running.
 
-Features
-Overall Cluster Status: Displays a high-level summary of the OpenShift cluster's health.
+## 1. Prerequisites and Setup
 
-Project Listing: Lists all projects (namespaces) available in the cluster.
+Ensure you have the following:
 
-Pod Details: Shows details of pods within a specified project.
+* OpenShift CodeReady Containers (CRC) v4.18.2+ running
 
-Route Details: Shows details of routes within a specified project.
+  ```bash
+  crc start
+  ```
 
-Interactive Web UI: Simple interface with refresh buttons and namespace input fields.
+* oc CLI tool installed and logged into your CRC cluster
 
-Prerequisites
-Before you begin, ensure you have the following installed and configured:
+  ```bash
+  oc login
+  ```
 
-OpenShift CodeReady Containers (CRC) v4.18.2 or later:
+* Git installed on your system
 
-Ensure your CRC instance is started (crc start) and running.
+## 2. File Structure and Required Files
 
-CRC Installation Guide
+Ensure your local repository (e.g., oc-sample-app) contains the following:
 
-oc OpenShift CLI Tool:
-
-Make sure you have the oc CLI tool installed locally and configured to interact with your CRC cluster.
-
-You should be logged in to your CRC cluster (oc login).
-
-Git: To clone this repository.
-
-Updated Dockerfile and rbac.yaml: Ensure your local copies of these files reflect the latest versions discussed (especially with USER root in Dockerfile and pods, routes in ClusterRole in rbac.yaml).
-
-File Structure
-The repository expects the following structure after cloning:
-
+```
 oc-sample-app/
 ├── Dockerfile                  # Defines the container image build process
 ├── requirements.txt            # Python dependencies for the Flask app
 ├── rbac.yaml                   # OpenShift RBAC definitions (ServiceAccount, Roles, Bindings)
 └── ocp-healthcheck-app/
     └── app.py                  # The main Flask application code
+```
 
-Getting Started
-Follow these steps to deploy and run the OpenShift CRC Status Checker application on your CRC environment.
+Make sure Dockerfile and rbac.yaml match the official version in your project. These are critical for the app to build and run with the correct permissions.
 
-1. Clone the Repository
-Clone this repository to your local machine:
+## 3. Deployment Steps
 
-git clone https://github.com/<YourGitHubUsername>/oc-sample-app.git # Replace with your actual repo URL
-cd oc-sample-app
+### 3.1 Navigate to Project Directory
 
-2. Prepare Your Environment and Source Files
-Ensure your Dockerfile and rbac.yaml are up-to-date with the necessary permissions and build instructions.
-Your Dockerfile should include USER root for dnf install and oc client copy.
-Your rbac.yaml should grant get and list permissions for pods and routes in the ClusterRole.
+```bash
+cd /path/to/your/oc-sample-app  # Replace with your actual path
+```
 
-Then, create a compressed tarball of your application source. This is the most reliable way to provide local Dockerfile content to OpenShift builds:
+### 3.2 Clean Up (Optional) & Create New Project
 
+```bash
+oc delete project oc-healthcheck --ignore-not-found=true
+oc new-project oc-healthcheck
+```
+
+### 3.3 Apply RBAC Permissions
+
+```bash
+oc apply -f rbac.yaml
+```
+
+### 3.4 Package Source & Build Image
+
+```bash
 tar -czf app-source.tar.gz .
 
-3. Set Up OpenShift Project and RBAC Permissions
-This part ensures your application has the necessary permissions to query the cluster.
-
-# Optional: Delete existing project for a clean start (if issues persist)
-oc delete project oc-healthcheck --ignore-not-found=true
-
-# Create your OpenShift Project
-oc new-project oc-healthcheck
-
-# Apply the RBAC Definitions
-# This creates the ServiceAccount, Roles, and RoleBindings.
-# Pay attention to the output to ensure 'oc-healthcheck-sa' is created.
-oc apply -f rbac.yaml
-
-4. Create OpenShift Build and Deployment Resources
-This sets up the ImageStream, BuildConfig, and an initial Deployment for your application.
-
-oc new-app oc-healthcheck-app --docker-image=oc-healthcheck-app:latest \
-  --as-deployment-config --strategy=docker --name=oc-healthcheck-app
-
-5. Start the Build by Uploading the Source Archive
-This triggers the image build process using the tarball created in Step 2.
+oc new-app oc-healthcheck-app \
+  --docker-image=oc-healthcheck-app:latest \
+  --as-deployment-config \
+  --strategy=docker \
+  --name=oc-healthcheck-app
 
 oc start-build oc-healthcheck-app --from-file=app-source.tar.gz --follow
+```
 
-Wait for the build to complete successfully. You should see "Build complete" in the logs.
+### 3.5 Assign Service Account & Trigger Deployment
 
-6. Assign the Custom ServiceAccount and Trigger Deployment
-After the build, explicitly assign the ServiceAccount with correct permissions to your Deployment and trigger a new rollout. This ensures the running pod has the necessary cluster-reader access.
-
+```bash
 oc set serviceaccount deployment/oc-healthcheck-app oc-healthcheck-sa
 oc rollout restart deployment/oc-healthcheck-app
+```
 
-7. Create a Service and Expose Your Application with an OpenShift Route
-These steps make your application accessible from outside the cluster.
+### 3.6 Create Service & Expose Route
 
-# Create a Service to expose your deployment internally
-oc expose deployment oc-healthcheck-app --port=8080 --target-port=8080 --name=oc-healthcheck-service
+```bash
+oc expose deployment oc-healthcheck-app \
+  --port=8080 --target-port=8080 \
+  --name=oc-healthcheck-service
 
-# Expose the Service with a Route (two steps to add TLS)
-oc expose service oc-healthcheck-service --name=oc-healthcheck-route --port=8080
-oc patch route oc-healthcheck-route -p '{"spec":{"tls":{"termination":"edge","insecureEdgeTerminationPolicy":"Redirect"}}}' --type=merge
+oc expose service oc-healthcheck-service \
+  --name=oc-healthcheck-route \
+  --port=8080
 
-8. Verify Deployment and Access Your Application
-Monitor Pod Status:
+oc patch route oc-healthcheck-route \
+  -p '{"spec":{"tls":{"termination":"edge","insecureEdgeTerminationPolicy":"Redirect"}}}' \
+  --type=merge
+```
 
+## 4. Verify & Access Your Application
+
+### Monitor Pod Status
+
+```bash
 oc get pods -w
+```
 
-Wait for a pod named oc-healthcheck-app-XXXXXXXXXX-YYYYY to show 1/1 Running.
+Wait until the pod shows as 1/1 Running.
 
-View Application Logs (for troubleshooting):
-If the pod isn't running or you see errors on the webpage, check the pod logs:
+### View Application Logs (For Troubleshooting)
 
+```bash
 oc logs -f $(oc get pod -l app=oc-healthcheck-app -o jsonpath='{.items[0].metadata.name}')
+```
 
-Look for messages indicating the Flask server has started successfully and oc commands are executing without permission errors.
+### Get Public Route URL
 
-Get the Public URL (Route):
-
+```bash
 oc get route oc-healthcheck-route -o jsonpath='{.spec.host}'
+```
 
-This will output the hostname for your application (e.g., oc-healthcheck-route-oc-healthcheck.apps-crc.testing).
+### Access in Browser
 
-Access the Application in Your Browser:
-Open your web browser and navigate to the URL you obtained from the previous step. Remember to use https:// (e.g., https://<your-route-url>/).
+Open the following in your web browser:
 
-You should now see your "OpenShift CRC Status Checker" dashboard, displaying live data from your CRC cluster.
+```
+https://<your-route-url>
+```
 
-Troubleshooting
-"ServiceAccount not found" or "Forbidden" errors: This indicates an RBAC issue. Double-check your rbac.yaml content for correct permissions (especially in the ClusterRole for cluster-wide resources like pods and routes in other namespaces) and ensure you've re-applied it and restarted the deployment (oc rollout restart deployment/oc-healthcheck-app).
+## 5. Troubleshooting Quick Notes
 
-Pod stuck in Pending or Error state: Use oc describe pod <pod-name> to get detailed events and oc logs <pod-name> to view application logs for clues.
+### "Forbidden" or "ServiceAccount not found"
 
-Build failures: Check oc logs -f bc/oc-healthcheck-app for specific errors (e.g., dnf permissions, curl download issues for oc client). Ensure your Dockerfile includes USER root for package installations.
+* Verify your rbac.yaml content
+* Re-apply:
+
+  ```bash
+  oc apply -f rbac.yaml
+  oc rollout restart deployment/oc-healthcheck-app
+  ```
+
+### Pod stuck in Pending/Error
+
+* Use:
+
+  ```bash
+  oc describe pod <pod-name>
+  oc logs <pod-name>
+  ```
+
+### Build Failures
+
+* Check:
+
+  ```bash
+  oc logs -f bc/oc-healthcheck-app
+  ```
+
+* Common Issues:
+
+  * Ensure Dockerfile has:
+
+    ```dockerfile
+    USER root
+    ```
+  * Verify OC\_VERSION and URL used in Dockerfile.
+
+You are done. The CRC Health Check App should now be running inside your OpenShift environment.
+
