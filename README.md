@@ -66,6 +66,18 @@ Before using this module, ensure you have:
 
 ---
 
+
+## Manual steps for CRC creation
+
+1. After terraform apply. The CRC setup starts and you can watch the logs from CRC VM in the path
+    ```bash
+    /crc/setup.log
+    ```
+2. Once the logs displays crc setup done,Kindly start the crc VM manualy with the below command
+    ```bash
+    crc start -p /crc/pull-secret.txt
+    ```   
+3. When CRC VM starts , you can see the credentials to login via SSH to openshift. To make a RDP change the password of the user with the command `sudo passwd <crc_vm_usename>`
 ## Outputs
 
 After successful deployment, the following outputs will be available:
