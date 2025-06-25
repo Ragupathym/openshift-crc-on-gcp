@@ -1,5 +1,7 @@
 # OpenShift CRC Status Checker - Consolidated Deployment Guide
 
+## Note: This is a demo app just to show the functionality.Please use for learning purpose.
+
 This guide provides a streamlined, step-by-step process to deploy the OpenShift CRC Status Checker application. It combines all necessary commands and configurations for quick and easy deployment, assuming you are starting from a clean state and have your CRC instance running.
 
 ## 1. Prerequisites and Setup
